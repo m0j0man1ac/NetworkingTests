@@ -1,0 +1,35 @@
+// SimpleCompute.compute
+#pragma kernel Main
+
+
+//compute buffer
+//in / readonly
+StructuredBuffer<float3> InPositions;
+
+//out / writeable Read/Write -> RW
+RWStructuredBuffer<float3> Positions; // The buffer we'll write to
+
+//other variables
+float _Time;
+int _BufferSize;
+//int _BackstepIterations;
+float4 _WaveA;
+float4 _WaveB;
+float4 _WaveC;
+
+#include "GersnerCalcFuntion.hlsl"
+
+#define BACKSTEP_ITERATIONS 1
+
+[numthreads(1, 1, 1)]
+void Main(uint3 id : SV_DispatchThreadID)
+{
+    //early exit if outofbounds
+    if (id.x >= _BufferSize) 
+        return;
+    
+    //overwrite positions with gerstner
+    Positions[id.x] = SummedGerstnerPosition(InPositions[id.x], BACKSTEP_ITERATIONS,
+        _WaveA, _WaveB, _WaveC);
+    //Positions[id.x] = float3(1, 1, 1);
+}
