@@ -125,7 +125,8 @@ public class GersnerReadback : MonoBehaviour
             {
                 float xPos = minX + x /(waveCheckPoints.x - 1) * collider.size.x;
                 float zPos = minZ + z /(waveCheckPoints.y - 1) * collider.size.z;
-                Gizmos.DrawCube(collider.transform.TransformPoint(new Vector3(xPos, collider.center.y, zPos)), Vector3.one * .2f); ;
+                Gizmos.DrawCube(collider.transform.TransformPoint(new Vector3(xPos, collider.center.y - collider.size.y/2, zPos)), 
+                    Vector3.one * .2f);
             }
         }
 
