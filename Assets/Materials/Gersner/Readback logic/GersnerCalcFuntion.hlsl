@@ -41,10 +41,19 @@ float3 SummedGerstnerPosition(float3 position, int backstepIterations,
     p -= GerstnerWavePosition(waveB, position);
     p -= GerstnerWavePosition(waveC, position);
     
+    ////reset before next step
+    //p.y = 0;
+    //float3 newPos = p;
+
+    ////backstep 2
+    //p -= GerstnerWavePosition(waveA, newPos);
+    //p -= GerstnerWavePosition(waveB, newPos);
+    //p -= GerstnerWavePosition(waveC, newPos);
+    
+    //reset before next step
     p.y = 0;
     float3 newPos = p;
-
-    //backstep 2
+    
     p += GerstnerWavePosition(waveA, newPos);
     p += GerstnerWavePosition(waveB, newPos);
     p += GerstnerWavePosition(waveC, newPos);

@@ -4,6 +4,7 @@ using UnityEditor.Build;
 using UnityEditor.PackageManager.Requests;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.XR;
 
 [RequireComponent(typeof(Rigidbody), typeof(Collider))]
 public class GersnerReadback : MonoBehaviour
@@ -75,7 +76,7 @@ public class GersnerReadback : MonoBehaviour
 
     private void Start()
     {
-        //rb.centerOfMass = centerOfMass.localPosition;
+        //rb.centerOfMass = centerOfMass.position;
         //run
         computeShader.Dispatch(kernelID, (int)waveCheckPoints.x, (int)waveCheckPoints.y, 1);
         // Asynchronous readback
@@ -153,29 +154,47 @@ public class GersnerReadback : MonoBehaviour
 
     private Vector3[] dataRecieved;
 
-    private const float WATER_DENSITY = 997; 
+    private const float WATER_DENSITY = 997;
+
+    private float[] gravWeights = new float[]{.0666f, .0666f, .0666f, .3f, .175f, .175f, .0666f, .0666f, .0666f };
+    private float waterAngDrag = .5f;
             
     private void FixedUpdate()
     {
+        for(int i=0; i<bufferSize; i++)
+            rb.AddForceAtPosition(Physics.gravity * gravWeights[i], originPoints[i], ForceMode.Acceleration);
+
         if (dataRecieved.Length == 0) return;
 
         float colVolume = collider.size.x * collider.size.y * collider.size.z;
+        float avgDrag = 0;
         //do the physics
         for(int i=0; i<bufferSize; i++)
         {
             //get displacement percentage
             var dif = dataRecieved[i] - originPoints[i];
             Debug.Log("dif " + dif);
-            float percent = Mathf.Clamp(dif.y / collider.size.y, 0f, 1f);
+            float percent = Mathf.Clamp01(dif.y / collider.size.y);
+            percent = Mathf.Sin((percent/2 -.5f) * Mathf.PI) + 1f;
             Debug.Log("percent " + percent);
+
+            avgDrag += percent;
 
             //if (percent <= 0f) break;
 
-            Vector3 forceToAdd = Vector3.up * WATER_DENSITY * (colVolume / bufferSize) * percent * Mathf.Abs(Physics.gravity.y);
+            Vector3 forceToAdd = -Physics.gravity *  bufferSize * percent * Time.fixedDeltaTime;
             Debug.Log("force to add " + forceToAdd);
-            rb.AddForceAtPosition(forceToAdd / 2, 
-                originPoints[i], ForceMode.Force);
+            rb.AddForceAtPosition(forceToAdd * 2 * (1+Mathf.Abs(Mathf.Clamp(rb.velocity.y/3f, -3f, 0f))), 
+                originPoints[i], ForceMode.Acceleration);
+
+            //angular velocity
+            rb.AddTorque(percent * -rb.angularVelocity * waterAngDrag * Time.fixedDeltaTime, ForceMode.VelocityChange);
         }
+
+        avgDrag /= bufferSize;
+        avgDrag *= 2f;
+        rb.drag = avgDrag + .1f;
+
     }
 
     private void OnDrawGizmosSelected()
