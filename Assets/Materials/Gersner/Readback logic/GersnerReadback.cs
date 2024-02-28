@@ -13,6 +13,9 @@ public class GersnerReadback : MonoBehaviour
     private ComputeShader computeShader = default;
 
     [SerializeField]
+    private int GerstnerBackstepIterations = 2;
+
+    [SerializeField]
     private Material oceanSource;
     private Vector4 WaveA;
     private Vector4 WaveB;
@@ -36,6 +39,7 @@ public class GersnerReadback : MonoBehaviour
     {
         bufferSize = (int)waveCheckPoints.x * (int)waveCheckPoints.y;
         originPoints = new Vector3[bufferSize];
+        dataRecieved = new Vector3[bufferSize];
 
         //create compute buffer
         originPositionsBuffer = new ComputeBuffer(bufferSize, sizeof(float) * 3);
@@ -153,6 +157,8 @@ public class GersnerReadback : MonoBehaviour
             
     private void FixedUpdate()
     {
+        if (dataRecieved.Length == 0) return;
+
         float colVolume = collider.size.x * collider.size.y * collider.size.z;
         //do the physics
         for(int i=0; i<bufferSize; i++)

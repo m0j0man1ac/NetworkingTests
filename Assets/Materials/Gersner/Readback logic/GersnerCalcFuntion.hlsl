@@ -21,6 +21,7 @@ float3 GerstnerWavePosition(float4 wave, float3 p)
 	//	d.y * (steepness * cos(f)),
 	//	-d.y * d.y * (steepness * sin(f))
 	//);
+
     return float3(
 		d.x * (a * cos(f)),
 		a * sin(f),
@@ -29,13 +30,24 @@ float3 GerstnerWavePosition(float4 wave, float3 p)
 }
 
 //summing multiple waves
-float3 SummedGerstnerPosition(float3 position, int backstepInterations,
+float3 SummedGerstnerPosition(float3 position, int backstepIterations,
     float4 waveA, float4 waveB, float4 waveC)
 {
     position.y = 0;
     float3 p = position;
-	p += GerstnerWavePosition(waveA, position);
-    p += GerstnerWavePosition(waveB, position);
-    p += GerstnerWavePosition(waveC, position);
+	
+    //backstep 1
+    p -= GerstnerWavePosition(waveA, position);
+    p -= GerstnerWavePosition(waveB, position);
+    p -= GerstnerWavePosition(waveC, position);
+    
+    p.y = 0;
+    float3 newPos = p;
+
+    //backstep 2
+    p += GerstnerWavePosition(waveA, newPos);
+    p += GerstnerWavePosition(waveB, newPos);
+    p += GerstnerWavePosition(waveC, newPos);
+
     return p;
 }
