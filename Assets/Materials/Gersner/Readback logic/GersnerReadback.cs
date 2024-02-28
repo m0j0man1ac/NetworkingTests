@@ -24,14 +24,19 @@ public class GersnerReadback : MonoBehaviour
     [SerializeField]
     private Vector2 waveCheckPoints = new Vector2(3,3);
 
+    private Vector3[] originPoints;
+
     //compute shader stuff
     int kernelID;
-    private const int bufferSize = 1;
+    private int bufferSize = 9;
     private ComputeBuffer originPositionsBuffer;
     private ComputeBuffer wavePositionsBuffer;
 
     private void OnEnable()
     {
+        bufferSize = (int)waveCheckPoints.x * (int)waveCheckPoints.y;
+        originPoints = new Vector3[bufferSize];
+
         //create compute buffer
         originPositionsBuffer = new ComputeBuffer(bufferSize, sizeof(float) * 3);
         wavePositionsBuffer = new ComputeBuffer(bufferSize, sizeof(float) * 3);
@@ -48,6 +53,8 @@ public class GersnerReadback : MonoBehaviour
 
         //set unchanging data
         computeShader.SetInt("_BufferSize", bufferSize);
+        computeShader.SetInt("_idX", (int)waveCheckPoints.x);
+        computeShader.SetInt("_idY", (int)waveCheckPoints.y);
 
         //get wave data
         UpdateWaveVectors();
@@ -59,16 +66,41 @@ public class GersnerReadback : MonoBehaviour
         originPositionsBuffer?.Release();
     }
 
+    [SerializeField]
+    private Transform centerOfMass;
+
     private void Start()
     {
+        //rb.centerOfMass = centerOfMass.localPosition;
         //run
-        computeShader.Dispatch(kernelID, 1, 1, 1);
+        computeShader.Dispatch(kernelID, (int)waveCheckPoints.x, (int)waveCheckPoints.y, 1);
         // Asynchronous readback
         AsyncGPUReadback.Request(wavePositionsBuffer, OnDataRecieved);
 
         //get rb and collider
         rb = GetComponent<Rigidbody>();
         collider = GetComponent<BoxCollider>();
+    }
+
+    private void SetOriginPoints()
+    {
+        var temp = new Vector3[bufferSize];
+
+        float minX = -collider.size.x/2f + collider.size.x/waveCheckPoints.x/2f;
+        float minZ = -collider.size.z/2f + collider.size.z/waveCheckPoints.y/2f;
+
+        for (int x = 0; x < waveCheckPoints.x; x++)
+        {
+            for (int z = 0; z < waveCheckPoints.y; z++)
+            {
+                float xPos = minX + x / (waveCheckPoints.x) * collider.size.x;
+                float zPos = minZ + z / (waveCheckPoints.y) * collider.size.z;
+                temp[x*(int)waveCheckPoints.x + z] = 
+                    collider.transform.TransformPoint(new Vector3(xPos, collider.center.y - collider.size.y / 2, zPos));
+            }
+        }
+
+        originPoints = temp;
     }
 
     private void UpdateWaveVectors()
@@ -89,7 +121,8 @@ public class GersnerReadback : MonoBehaviour
     {
         //set per frame data on shader
         //Debug.Log(Time.timeSinceLevelLoad);
-        originPositionsBuffer.SetData(new Vector3[]{transform.position});
+        SetOriginPoints();
+        originPositionsBuffer.SetData(originPoints);
         computeShader.SetFloat("_Time", Time.timeSinceLevelLoad);
     }
 
@@ -101,15 +134,42 @@ public class GersnerReadback : MonoBehaviour
             return;
         }
         //Debug.Log("isDone" + request.done);
-        Debug.Log("read data as single vector 3" + request.GetData<Vector3>().ToArray()[0]);
+        //Debug.Log("read data as single vector 3" + request.GetData<Vector3>().ToArray()[0]);
         //Debug.Log("read data as array" + request.GetData<Vector3>().ToArray());
 
-        Vector3[] data = request.GetData<Vector3>().ToArray();
-        transform.position = new Vector3(transform.position.x, data[0].y, transform.position.z);
+        dataRecieved = request.GetData<Vector3>().ToArray();
+
+        //Vector3[] data = request.GetData<Vector3>().ToArray();
+        //transform.position = new Vector3(transform.position.x, data[0].y, transform.position.z);
 
         UpdateWaveVectors();
-        computeShader.Dispatch(kernelID, 1, 1, 1);
+        computeShader.Dispatch(kernelID, (int)waveCheckPoints.x, (int)waveCheckPoints.y, 1);
         AsyncGPUReadback.Request(wavePositionsBuffer, OnDataRecieved);
+    }
+
+    private Vector3[] dataRecieved;
+
+    private const float WATER_DENSITY = 997; 
+            
+    private void FixedUpdate()
+    {
+        float colVolume = collider.size.x * collider.size.y * collider.size.z;
+        //do the physics
+        for(int i=0; i<bufferSize; i++)
+        {
+            //get displacement percentage
+            var dif = dataRecieved[i] - originPoints[i];
+            Debug.Log("dif " + dif);
+            float percent = Mathf.Clamp(dif.y / collider.size.y, 0f, 1f);
+            Debug.Log("percent " + percent);
+
+            //if (percent <= 0f) break;
+
+            Vector3 forceToAdd = Vector3.up * WATER_DENSITY * (colVolume / bufferSize) * percent * Mathf.Abs(Physics.gravity.y);
+            Debug.Log("force to add " + forceToAdd);
+            rb.AddForceAtPosition(forceToAdd / 2, 
+                originPoints[i], ForceMode.Force);
+        }
     }
 
     private void OnDrawGizmosSelected()
@@ -119,17 +179,14 @@ public class GersnerReadback : MonoBehaviour
 
         Gizmos.color = Color.green;
 
-        for(int x = 0; x<waveCheckPoints.x; x++)
+        SetOriginPoints();
+        for (int i = 0; i < bufferSize; i++)
         {
-            for(int z =0; z<waveCheckPoints.y; z++)
-            {
-                float xPos = minX + x /(waveCheckPoints.x - 1) * collider.size.x;
-                float zPos = minZ + z /(waveCheckPoints.y - 1) * collider.size.z;
-                Gizmos.DrawCube(collider.transform.TransformPoint(new Vector3(xPos, collider.center.y - collider.size.y/2, zPos)), 
-                    Vector3.one * .2f);
-            }
+            var p = originPoints[i];
+            Gizmos.DrawCube(p, Vector3.one * .2f);
+
+            if (dataRecieved.Length > 0)
+                Gizmos.DrawLine(p, dataRecieved[i]);
         }
-
-
     }
 }
