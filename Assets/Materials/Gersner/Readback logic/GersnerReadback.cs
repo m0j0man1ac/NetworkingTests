@@ -173,17 +173,17 @@ public class GersnerReadback : MonoBehaviour
         {
             //get displacement percentage
             var dif = dataRecieved[i] - originPoints[i];
-            Debug.Log("dif " + dif);
+            //Debug.Log("dif " + dif);
             float percent = Mathf.Clamp01(dif.y / collider.size.y);
             percent = Mathf.Sin((percent/2 -.5f) * Mathf.PI) + 1f;
-            Debug.Log("percent " + percent);
+            //Debug.Log("percent " + percent);
 
             avgDrag += percent;
 
             //if (percent <= 0f) break;
 
             Vector3 forceToAdd = -Physics.gravity *  bufferSize * percent * Time.fixedDeltaTime;
-            Debug.Log("force to add " + forceToAdd);
+            //Debug.Log("force to add " + forceToAdd);
             rb.AddForceAtPosition(forceToAdd * 2 * (1+Mathf.Abs(Mathf.Clamp(rb.velocity.y/3f, -3f, 0f))), 
                 originPoints[i], ForceMode.Acceleration);
 
@@ -210,7 +210,7 @@ public class GersnerReadback : MonoBehaviour
             var p = originPoints[i];
             Gizmos.DrawCube(p, Vector3.one * .2f);
 
-            if (dataRecieved.Length > 0)
+            if (dataRecieved!=null && dataRecieved.Length > 0)
                 Gizmos.DrawLine(p, dataRecieved[i]);
         }
     }
